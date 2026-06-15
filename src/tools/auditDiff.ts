@@ -1,8 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { CachedPolicyParser } from "../services/cachedPolicyParser.js";
-import { DiffAnalyzer } from "../services/diffAnalyzer.js";
+import { runGatekeeperAudit } from "../services/auditRunner.js";
 import { sanitizeWorkspacePath } from "../services/pathSanitizer.js";
-import { AuditDiffSchema, type AuditDiffInput, type AuditResponse } from "../types/index.js";
+import { AuditDiffSchema, type AuditResponse } from "../types/index.js";
 
 type ContentBlock = {
   type: "text";
@@ -57,7 +57,7 @@ export async function createAuditDiffResponse(
 
   try {
     sanitizeWorkspacePath(options.workspaceRoot, parsed.data.filePath);
-    const auditResponse = await runAudit(parsed.data, options);
+    const auditResponse = await runGatekeeperAudit(parsed.data, options);
     return {
       content: [
         {
@@ -82,15 +82,7 @@ export async function createAuditDiffResponse(
   }
 }
 
-async function runAudit(input: AuditDiffInput, options: AuditDiffOptions): Promise<AuditResponse> {
-  const analyzer = new DiffAnalyzer();
-  const policyParser = options.policyParser ?? new CachedPolicyParser();
-  const rules = await policyParser.loadWorkspacePolicies(options.workspaceRoot);
-
-  return analyzer.runRules(input, rules);
-}
-
-function formatAuditResponse(filePath: string, auditResponse: AuditResponse): string {
+export function formatAuditResponse(filePath: string, auditResponse: AuditResponse): string {
   if (auditResponse.isCompliant) {
     const diagnostics = formatDiagnostics(auditResponse.diagnostics);
     return [
