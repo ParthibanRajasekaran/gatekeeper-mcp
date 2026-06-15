@@ -30,3 +30,6 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Smoke test MCP server
+        run: npm run smoke
