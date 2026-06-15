@@ -19,9 +19,12 @@ type AuditDiffOptions = {
   policyParser?: CachedPolicyParser;
 };
 
-const defaultPolicyParser = new CachedPolicyParser();
-
 export function registerAuditDiffTool(server: McpServer, options: AuditDiffOptions): void {
+  const serverScopedOptions: AuditDiffOptions = {
+    ...options,
+    policyParser: options.policyParser ?? new CachedPolicyParser()
+  };
+
   server.registerTool(
     "gatekeeper_audit_diff",
     {
@@ -30,7 +33,7 @@ export function registerAuditDiffTool(server: McpServer, options: AuditDiffOptio
         "Audits an AI-generated code patch against local security and architecture guardrails before commit.",
       inputSchema: AuditDiffSchema.shape
     },
-    async (input) => createAuditDiffResponse(input, options)
+    async (input) => createAuditDiffResponse(input, serverScopedOptions)
   );
 }
 
@@ -81,9 +84,8 @@ export async function createAuditDiffResponse(
 
 async function runAudit(input: AuditDiffInput, options: AuditDiffOptions): Promise<AuditResponse> {
   const analyzer = new DiffAnalyzer();
-  const rules = await (options.policyParser ?? defaultPolicyParser).loadWorkspacePolicies(
-    options.workspaceRoot
-  );
+  const policyParser = options.policyParser ?? new CachedPolicyParser();
+  const rules = await policyParser.loadWorkspacePolicies(options.workspaceRoot);
 
   return analyzer.runRules(input, rules);
 }
