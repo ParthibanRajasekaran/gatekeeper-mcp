@@ -4,6 +4,8 @@
 
 The repository has been prepared for local validation and CI validation. CI now includes build, unit tests, and an automated MCP stdio smoke test.
 
+Latest fix trigger: refreshed after workspace-scoped cache and production-only audit patches.
+
 ## Commands to run locally
 
 ```bash
