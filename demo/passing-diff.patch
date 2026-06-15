@@ -1,0 +1,11 @@
+diff --git a/src/api/users.ts b/src/api/users.ts
+index 1111111..2222222 100644
+--- a/src/api/users.ts
++++ b/src/api/users.ts
+@@ -1,3 +1,5 @@
++import { httpClient } from "@/lib/httpClient";
++
+ export async function getUsers() {
++  const response = await httpClient.get("/api/users");
+   return response.json();
+ }
