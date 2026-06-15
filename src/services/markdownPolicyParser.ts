@@ -1,6 +1,7 @@
 import type { PolicyRule, Severity, SupportedLanguage } from "../types/index.js";
 
 const RULE_HEADING_PATTERN = /^##\s+Rule\s+([A-Z]+-\d+):\s+(.+)$/gm;
+const FIELD_PATTERN = /^\w+:\s*/m;
 const VALID_SEVERITIES = new Set<Severity>(["info", "warn", "error"]);
 const VALID_LANGUAGES = new Set<SupportedLanguage>([
   "typescript",
@@ -33,7 +34,7 @@ export class MarkdownPolicyParser {
       const match = matches[index];
       const nextMatch = matches[index + 1];
 
-      if (!match?.index || !match[1] || !match[2]) {
+      if (!match || match.index === undefined || !match[1] || !match[2]) {
         continue;
       }
 
@@ -94,12 +95,26 @@ export class MarkdownPolicyParser {
   }
 
   private readBlockField(body: string, fieldName: string): string | undefined {
-    const pattern = new RegExp(
-      `^${fieldName}:\\s*\\n([\\s\\S]*?)(?=^\\w+:\\s*|^##\\s+Rule|\\z)`,
-      "im"
-    );
-    const match = pattern.exec(body);
-    return match?.[1]?.trim();
+    const marker = `${fieldName}:`;
+    const fieldIndex = body.toLowerCase().indexOf(marker.toLowerCase());
+
+    if (fieldIndex === -1) {
+      return undefined;
+    }
+
+    const afterMarker = body.slice(fieldIndex + marker.length);
+    const lines = afterMarker.replace(/^\s*\r?\n/, "").split(/\r?\n/);
+    const collected: string[] = [];
+
+    for (const line of lines) {
+      if (FIELD_PATTERN.test(line) && collected.length > 0) {
+        break;
+      }
+      collected.push(line);
+    }
+
+    const value = collected.join("\n").trim();
+    return value.length > 0 ? value : undefined;
   }
 
   private parseLanguages(rawLanguages: string | undefined): SupportedLanguage[] {
