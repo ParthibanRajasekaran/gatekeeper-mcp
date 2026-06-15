@@ -4,6 +4,19 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { loadConfig } from "./config.js";
 import { registerAuditDiffTool } from "./tools/auditDiff.js";
 
+process.stdout.on("error", (error: NodeJS.ErrnoException) => {
+  if (error.code === "EPIPE") {
+    process.exit(0);
+  }
+
+  console.error("Fatal standard output stream error:", error);
+  process.exit(1);
+});
+
+console.log = (...args: unknown[]) => {
+  console.error("[Gatekeeper] Redirected stdout log:", ...args);
+};
+
 const config = loadConfig();
 
 const server = new McpServer({
