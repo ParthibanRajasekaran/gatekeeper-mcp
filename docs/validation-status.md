@@ -2,7 +2,7 @@
 
 ## Current status
 
-The repository has been prepared for local validation and CI validation.
+The repository has been prepared for local validation and CI validation. CI now includes build, unit tests, and an automated MCP stdio smoke test.
 
 ## Commands to run locally
 
@@ -11,6 +11,13 @@ npm install
 npm run typecheck
 npm test
 npm run build
+npm run smoke
+npm run benchmark
+```
+
+Optional manual inspector validation:
+
+```bash
 npx @modelcontextprotocol/inspector node dist/index.js
 ```
 
@@ -22,6 +29,8 @@ The ChatGPT sandbox used to prepare this repository cannot reach GitHub directly
 
 - TypeScript build passes.
 - Vitest test suite passes.
-- MCP inspector starts the server.
+- Automated MCP smoke test passes.
+- MCP inspector starts the server manually.
 - `gatekeeper_audit_diff` returns FAIL for `demo/failing-diff.patch`.
 - `gatekeeper_audit_diff` returns PASS for `demo/passing-diff.patch`.
+- Benchmark script emits timing metrics.
