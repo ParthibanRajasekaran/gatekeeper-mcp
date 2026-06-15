@@ -6,7 +6,10 @@
 
 Gatekeeper-MCP is a zero-trust policy enforcement layer for AI coding agents.
 
-It sits between MCP-compatible AI clients and repository changes, auditing generated diffs against security, architecture, tenancy, and compliance rules before code is committed.
+It sits between MCP-compatible AI clients and repository changes, auditing generated diffs against security, architecture, tenancy, and compliance rules before code is committed. It can now be used in two ways:
+
+- as an MCP stdio server for AI coding clients;
+- as a CLI audit tool for local terminals and CI workflows.
 
 ```text
 [Gatekeeper] Compliance check failed.
@@ -38,11 +41,12 @@ Local policies + MCP tool interception + deterministic diff analysis = shift-lef
 ## What makes this different
 
 - **MCP-native**: designed for Model Context Protocol clients rather than a generic CLI-only workflow.
+- **CLI-enabled**: usable from terminals, scripts, and future GitHub PR checks.
 - **Policy-as-code from existing docs**: turns `SECURITY.md` and `ARCHITECTURE.md` into executable guardrails.
 - **Zero-trust input handling**: treats tool arguments, file paths, and diffs as untrusted data.
 - **Diff-first enforcement**: analyses generated changes before they land in the repository.
 - **MCP-safe stdio posture**: diagnostics go to `stderr` so JSON-RPC transport remains clean.
-- **Enterprise roadmap**: planned OPA/Rego, AWS Cedar, AST-backed rules, OpenTelemetry, and GitHub PR checks.
+- **Enterprise roadmap**: planned SARIF, OPA/Rego, AWS Cedar, AST-backed rules, OpenTelemetry, and GitHub PR checks.
 
 ## Request lifecycle
 
@@ -68,7 +72,7 @@ sequenceDiagram
 
 ```mermaid
 flowchart LR
-    A[AI coding client] --> B[Gatekeeper MCP tool]
+    A[AI coding client or CLI] --> B[Gatekeeper audit entrypoint]
     B --> C[Zod input validation]
     C --> D[Path sanitizer]
     D --> E[Cached policy loader]
@@ -76,7 +80,7 @@ flowchart LR
     F --> G[Rule compiler]
     G --> H[Diff parser]
     H --> I[Diff analyzer]
-    I --> J[MCP-safe audit response]
+    I --> J[Audit response]
 ```
 
 ## 60 second quickstart
@@ -86,16 +90,43 @@ npm install
 npm run typecheck
 npm test
 npm run build
-npm run dev
+npm run smoke
+```
+
+CLI audit example:
+
+```bash
+node dist/cli.js audit --diff demo/failing-diff.patch --file src/api/users.ts --language typescript
+```
+
+Expected result:
+
+```text
+Audit Results: FAIL
+Rule ARCH-001: No direct fetch
+```
+
+Passing example:
+
+```bash
+node dist/cli.js audit --diff demo/passing-diff.patch --file src/api/users.ts --language typescript
+```
+
+Expected result:
+
+```text
+Audit Results: PASS
 ```
 
 Future package target:
 
 ```bash
-npx -y gatekeeper-mcp
+npx -y gatekeeper-mcp audit --diff demo/failing-diff.patch --file src/api/users.ts --language typescript
 ```
 
 ## Claude Desktop configuration
+
+Use the MCP server binary rather than the CLI binary:
 
 ```json
 {
@@ -209,6 +240,8 @@ npm install
 npm run typecheck
 npm test
 npm run build
+npm run smoke
+npm run smoke:cli
 npx @modelcontextprotocol/inspector node dist/index.js
 ```
 
@@ -226,12 +259,12 @@ npm run build
 ## Roadmap
 
 - GitHub Action for pull request checks
+- SARIF output for GitHub Code Scanning
 - Benchmark suite for policy evaluation latency
 - TypeScript AST-backed architecture rules
 - OPA/Rego adapter for enterprise policy interoperability
 - AWS Cedar adapter for authorization-style guardrails
 - OpenTelemetry spans for prompt-to-policy audit trails
-- CLI wrapper with screenshot-friendly terminal output
 - Demo GIF and project website
 - npm package release
 
