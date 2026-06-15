@@ -1,26 +1,89 @@
 # Gatekeeper-MCP
 
 [![CI](https://github.com/ParthibanRajasekaran/gatekeeper-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/ParthibanRajasekaran/gatekeeper-mcp/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/ParthibanRajasekaran/gatekeeper-mcp/actions/workflows/codeql.yml/badge.svg)](https://github.com/ParthibanRajasekaran/gatekeeper-mcp/actions/workflows/codeql.yml)
+[![npm audit](https://github.com/ParthibanRajasekaran/gatekeeper-mcp/actions/workflows/security-audit.yml/badge.svg)](https://github.com/ParthibanRajasekaran/gatekeeper-mcp/actions/workflows/security-audit.yml)
 
-Gatekeeper-MCP audits AI-generated code before it lands in your repo.
+Gatekeeper-MCP is a zero-trust policy enforcement layer for AI coding agents.
 
-It turns existing repository policy documents such as `.github/SECURITY.md` and `.github/ARCHITECTURE.md` into live Model Context Protocol guardrails for AI coding assistants.
+It sits between MCP-compatible AI clients and repository changes, auditing generated diffs against security, architecture, tenancy, and compliance rules before code is committed.
 
 ```text
-[Gatekeeper] Code compliant with SOC2 policies. Safe to commit.
+[Gatekeeper] Compliance check failed.
 
-Audit Results: PASS
-Violations: 0
+Audit Results: FAIL
+Violations: 1
+
+Rule ARCH-001: No direct fetch
+File: src/api/users.ts
+Line: 1
+Severity: error
+Issue: Direct global fetch calls bypass approved HTTP client policies such as auth headers, tracing, retries, and error handling.
+Suggested remediation:
+import { httpClient } from "@/lib/httpClient";
+
+const response = await httpClient.get("/api/resource");
 ```
 
 ## Why this exists
 
-AI coding assistants can generate changes quickly, but they often do not know your company's security, tenancy, observability, or architecture rules. Traditional CI checks catch issues after code is already written. Gatekeeper-MCP shifts those checks earlier by auditing generated diffs before commit.
+AI coding assistants can generate changes quickly, but they often do not know an organisation's security, tenancy, observability, or architecture rules. Traditional CI checks catch issues after code is already written. Gatekeeper-MCP shifts those checks earlier by auditing generated diffs before commit.
+
+The project explores a practical AI governance pattern for engineering teams adopting Claude Code, Cursor, GitHub Copilot, and other agentic development tools:
+
+```text
+Local policies + MCP tool interception + deterministic diff analysis = shift-left AI guardrails
+```
+
+## What makes this different
+
+- **MCP-native**: designed for Model Context Protocol clients rather than a generic CLI-only workflow.
+- **Policy-as-code from existing docs**: turns `SECURITY.md` and `ARCHITECTURE.md` into executable guardrails.
+- **Zero-trust input handling**: treats tool arguments, file paths, and diffs as untrusted data.
+- **Diff-first enforcement**: analyses generated changes before they land in the repository.
+- **MCP-safe stdio posture**: diagnostics go to `stderr` so JSON-RPC transport remains clean.
+- **Enterprise roadmap**: planned OPA/Rego, AWS Cedar, AST-backed rules, OpenTelemetry, and GitHub PR checks.
+
+## Request lifecycle
+
+```mermaid
+sequenceDiagram
+    participant Dev as Developer
+    participant AI as AI Coding Client
+    participant MCP as Gatekeeper-MCP
+    participant Policy as Policy Engine
+    participant Repo as Repository
+
+    Dev->>AI: Ask agent to generate a code change
+    AI->>MCP: gatekeeper_audit_diff(filePath, diffString, language)
+    MCP->>MCP: Validate input and confine paths
+    MCP->>Repo: Read SECURITY.md / ARCHITECTURE.md
+    MCP->>Policy: Compile built-in and markdown rules
+    Policy->>MCP: Violations and remediations
+    MCP->>AI: PASS / FAIL response
+    AI->>Dev: Safe to commit or fix required
+```
+
+## Architecture
+
+```mermaid
+flowchart LR
+    A[AI coding client] --> B[Gatekeeper MCP tool]
+    B --> C[Zod input validation]
+    C --> D[Path sanitizer]
+    D --> E[Cached policy loader]
+    E --> F[Markdown policy parser]
+    F --> G[Rule compiler]
+    G --> H[Diff parser]
+    H --> I[Diff analyzer]
+    I --> J[MCP-safe audit response]
+```
 
 ## 60 second quickstart
 
 ```bash
 npm install
+npm run typecheck
 npm test
 npm run build
 npm run dev
@@ -39,7 +102,7 @@ npx -y gatekeeper-mcp
   "mcpServers": {
     "gatekeeper-mcp": {
       "command": "node",
-      "args": ["/absolute/path/to/gatekeeper-mcp/dist/src/index.js"],
+      "args": ["/absolute/path/to/gatekeeper-mcp/dist/index.js"],
       "env": {
         "GATEKEEPER_WORKSPACE": "/absolute/path/to/your/repo"
       }
@@ -123,28 +186,6 @@ const response = await httpClient.get("/api/resource");
 
 Free-form markdown is ignored safely. Structured markdown overrides built-in rules by matching rule ID.
 
-## Architecture
-
-```text
-Claude or MCP Client
-        |
-        | gatekeeper_audit_diff
-        v
-src/tools/auditDiff.ts
-        |
-        v
-PolicyDiscovery + MarkdownPolicyParser
-        |
-        v
-RuleCompiler
-        |
-        v
-DiffParser + DiffAnalyzer
-        |
-        v
-MCP-safe audit response
-```
-
 ## Security posture
 
 Gatekeeper-MCP v1 is intentionally conservative:
@@ -153,8 +194,25 @@ Gatekeeper-MCP v1 is intentionally conservative:
 - It inspects only added lines.
 - It never executes user code.
 - It resolves policy files inside a workspace root.
+- It blocks target file paths outside the configured workspace.
 - It logs diagnostics to stderr instead of stdout.
-- It fails open with diagnostics when policy files cannot be parsed.
+- It fails open with built-in rules if local policies cannot be parsed.
+
+For the threat model, see [`SECURITY.md`](./SECURITY.md).
+
+## Demo
+
+Run the local workflow and inspect the sample patches in [`demo/`](./demo):
+
+```bash
+npm install
+npm run typecheck
+npm test
+npm run build
+npx @modelcontextprotocol/inspector node dist/index.js
+```
+
+Use the failing diff in [`demo/failing-diff.patch`](./demo/failing-diff.patch) to validate the `ARCH-001` guardrail.
 
 ## Local development
 
@@ -167,14 +225,15 @@ npm run build
 
 ## Roadmap
 
-- YAML override profile via `.github/gatekeeper.yml`
-- Compiled rule cache
-- Safer regex validation and timeout strategy
-- AST-backed rules for TypeScript, Python, and Go
-- CLI wrapper with screenshot-friendly terminal output
 - GitHub Action for pull request checks
-- Benchmark suite
+- Benchmark suite for policy evaluation latency
+- TypeScript AST-backed architecture rules
+- OPA/Rego adapter for enterprise policy interoperability
+- AWS Cedar adapter for authorization-style guardrails
+- OpenTelemetry spans for prompt-to-policy audit trails
+- CLI wrapper with screenshot-friendly terminal output
 - Demo GIF and project website
+- npm package release
 
 ## Positioning
 
