@@ -53,3 +53,16 @@ jobs:
         with:
           name: smoke-output
           path: smoke-output.log
+
+      - name: Smoke test CLI
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run smoke:cli 2>&1 | tee cli-smoke-output.log
+
+      - name: Upload CLI smoke output on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli-smoke-output
+          path: cli-smoke-output.log
