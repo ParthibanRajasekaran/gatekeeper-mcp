@@ -42,4 +42,14 @@ jobs:
         run: npm run build
 
       - name: Smoke test MCP server
-        run: npm run smoke
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run smoke 2>&1 | tee smoke-output.log
+
+      - name: Upload smoke output on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-output
+          path: smoke-output.log
