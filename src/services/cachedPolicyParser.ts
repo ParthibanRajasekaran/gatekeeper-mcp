@@ -1,3 +1,4 @@
+import path from "node:path";
 import { readFile } from "node:fs/promises";
 import type { PolicyRule } from "../types/index.js";
 import { builtInRules } from "../rules/builtInRules.js";
@@ -10,6 +11,7 @@ const DEFAULT_CACHE_TTL_MS = 5_000;
 export class CachedPolicyParser {
   private ruleCache: PolicyRule[] | undefined;
   private lastCheckedTime = 0;
+  private cachedWorkspaceRoot: string | undefined;
 
   constructor(
     private readonly cacheTtlMs: number = DEFAULT_CACHE_TTL_MS,
@@ -21,20 +23,28 @@ export class CachedPolicyParser {
 
   async loadWorkspacePolicies(workspaceRoot: string): Promise<PolicyRule[]> {
     const now = Date.now();
+    const normalizedWorkspaceRoot = path.resolve(workspaceRoot);
 
-    if (this.ruleCache && now - this.lastCheckedTime < this.cacheTtlMs) {
+    if (
+      this.ruleCache &&
+      this.cachedWorkspaceRoot === normalizedWorkspaceRoot &&
+      now - this.lastCheckedTime < this.cacheTtlMs
+    ) {
       return this.ruleCache;
     }
 
     try {
-      const compiledRules = await this.parsePolicyFiles(workspaceRoot);
+      const compiledRules = await this.parsePolicyFiles(normalizedWorkspaceRoot);
       this.ruleCache = compiledRules;
+      this.cachedWorkspaceRoot = normalizedWorkspaceRoot;
       this.lastCheckedTime = now;
       return compiledRules;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown cache compilation error";
       console.error(`[Gatekeeper] Policy cache compilation failure: ${message}`);
-      return this.ruleCache ?? builtInRules;
+      return this.cachedWorkspaceRoot === normalizedWorkspaceRoot && this.ruleCache
+        ? this.ruleCache
+        : builtInRules;
     }
   }
 
