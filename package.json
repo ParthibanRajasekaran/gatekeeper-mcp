@@ -11,7 +11,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "dev": "tsx src/index.ts",
-    "test": "vitest run",
+    "test": "vitest run --fileParallelism=false --reporter=verbose",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.build.json --noEmit",
     "smoke": "node scripts/run-smoke-test.mjs",
