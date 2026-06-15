@@ -101,7 +101,7 @@ Gatekeeper-MCP ships with three starter rules:
 
 Add structured rules to `.github/SECURITY.md` or `.github/ARCHITECTURE.md`:
 
-```md
+````md
 ## Rule ARCH-001: No direct fetch
 
 Severity: error
@@ -119,7 +119,7 @@ import { httpClient } from "@/lib/httpClient";
 
 const response = await httpClient.get("/api/resource");
 ```
-```
+````
 
 Free-form markdown is ignored safely. Structured markdown overrides built-in rules by matching rule ID.
 
