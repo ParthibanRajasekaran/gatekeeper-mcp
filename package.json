@@ -6,8 +6,15 @@
   "private": false,
   "license": "MIT",
   "bin": {
-    "gatekeeper-mcp": "./dist/index.js"
+    "gatekeeper-mcp": "./dist/cli.js",
+    "gatekeeper-mcp-server": "./dist/index.js"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "SECURITY.md"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "dev": "tsx src/index.ts",
@@ -15,7 +22,9 @@
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.build.json --noEmit",
     "smoke": "node scripts/run-smoke-test.mjs",
-    "benchmark": "npm run build && node scripts/benchmark.mjs"
+    "smoke:cli": "npm run build && node dist/cli.js audit --diff demo/failing-diff.patch --file src/api/users.ts --language typescript",
+    "benchmark": "npm run build && node scripts/benchmark.mjs",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build && npm run smoke"
   },
   "keywords": [
     "mcp",
