@@ -7,12 +7,14 @@
 3. Run `npm run typecheck`.
 4. Run `npm test`.
 5. Run `npm run build`.
-6. Validate with MCP inspector.
-7. Check CI, CodeQL, and npm audit workflow results.
+6. Run `npm run smoke`.
+7. Run `npm run benchmark`.
+8. Validate manually with MCP inspector if the smoke test fails.
+9. Check CI, CodeQL, and npm audit workflow results.
 
 ## High value follow-ups
 
-1. Capture a demo GIF.
+1. Capture a demo GIF using the payloads in `demo/run-local-audit.md`.
 2. Publish the technical article.
 3. Create the first npm release.
 4. Submit the repo to MCP directories.
