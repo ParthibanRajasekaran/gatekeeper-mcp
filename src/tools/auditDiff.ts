@@ -1,10 +1,7 @@
-import { readFile } from "node:fs/promises";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { builtInRules } from "../rules/builtInRules.js";
+import { CachedPolicyParser } from "../services/cachedPolicyParser.js";
 import { DiffAnalyzer } from "../services/diffAnalyzer.js";
-import { MarkdownPolicyParser } from "../services/markdownPolicyParser.js";
-import { PolicyDiscovery } from "../services/policyDiscovery.js";
-import { RuleCompiler } from "../services/ruleCompiler.js";
+import { sanitizeWorkspacePath } from "../services/pathSanitizer.js";
 import { AuditDiffSchema, type AuditDiffInput, type AuditResponse } from "../types/index.js";
 
 type ContentBlock = {
@@ -19,7 +16,10 @@ type ToolResponse = {
 
 type AuditDiffOptions = {
   workspaceRoot: string;
+  policyParser?: CachedPolicyParser;
 };
+
+const defaultPolicyParser = new CachedPolicyParser();
 
 export function registerAuditDiffTool(server: McpServer, options: AuditDiffOptions): void {
   server.registerTool(
@@ -53,7 +53,8 @@ export async function createAuditDiffResponse(
   }
 
   try {
-    const auditResponse = await runAudit(parsed.data, options.workspaceRoot);
+    sanitizeWorkspacePath(options.workspaceRoot, parsed.data.filePath);
+    const auditResponse = await runAudit(parsed.data, options);
     return {
       content: [
         {
@@ -64,14 +65,13 @@ export async function createAuditDiffResponse(
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    console.error(`[Gatekeeper] Internal audit failure: ${message}`);
+    console.error(`[Gatekeeper] Audit failure: ${message}`);
 
     return {
       content: [
         {
           type: "text",
-          text:
-            "[Gatekeeper] Failed to complete compliance validation. Built-in rules may still be available after configuration issues are resolved."
+          text: `[Gatekeeper] Failed to complete compliance validation.\n\n${message}`
         }
       ],
       isError: true
@@ -79,34 +79,13 @@ export async function createAuditDiffResponse(
   }
 }
 
-async function runAudit(input: AuditDiffInput, workspaceRoot: string): Promise<AuditResponse> {
-  const discovery = new PolicyDiscovery(workspaceRoot);
-  const parser = new MarkdownPolicyParser();
-  const compiler = new RuleCompiler();
+async function runAudit(input: AuditDiffInput, options: AuditDiffOptions): Promise<AuditResponse> {
   const analyzer = new DiffAnalyzer();
-  const diagnostics: string[] = [];
-  const markdownRules = [];
+  const rules = await (options.policyParser ?? defaultPolicyParser).loadWorkspacePolicies(
+    options.workspaceRoot
+  );
 
-  const policyFiles = await discovery.discoverPolicyFiles();
-
-  for (const policyFile of policyFiles) {
-    try {
-      const policyContent = await readFile(policyFile, "utf8");
-      markdownRules.push(...parser.parse(policyContent));
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown policy read error";
-      diagnostics.push(`Policy file skipped: ${policyFile}. ${message}`);
-      console.error(`[Gatekeeper] Policy file skipped: ${policyFile}. ${message}`);
-    }
-  }
-
-  const rules = compiler.compile(builtInRules, markdownRules);
-  const auditResponse = await analyzer.runRules(input, rules);
-
-  return {
-    ...auditResponse,
-    diagnostics: [...diagnostics, ...auditResponse.diagnostics]
-  };
+  return analyzer.runRules(input, rules);
 }
 
 function formatAuditResponse(filePath: string, auditResponse: AuditResponse): string {
