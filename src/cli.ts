@@ -79,9 +79,12 @@ export async function runCli(argv: string[]): Promise<number> {
 
 function parseArgs(argv: string[]): CliArgs {
   const parsed: CliArgs = {
-    command: argv[0],
     help: false
   };
+
+  if (argv[0]) {
+    parsed.command = argv[0];
+  }
 
   for (let index = 1; index < argv.length; index += 1) {
     const current = argv[index];
@@ -139,7 +142,7 @@ function renderHelp(): string {
   ].join("\n");
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
   const exitCode = await runCli(process.argv.slice(2));
   process.exit(exitCode);
 }
